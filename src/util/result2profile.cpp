@@ -136,7 +136,7 @@ int result2profile(int argc, const char **argv, const Command &command, bool ret
         char dbKey[255];
         const char *entry[255];
         char buffer[2048];
-
+        float * pNullBuffer=new float[maxSequenceLength + 1];
         std::vector<Matcher::result_t> alnResults;
         alnResults.reserve(300);
 
@@ -223,6 +223,12 @@ int result2profile(int argc, const char **argv, const Command &command, bool ret
                 }
 
                 PSSMCalculator::Profile pssmRes = calculator.computePSSMFromMSA(filteredSetSize, res.centerLength, (const char **) res.msaSequence, par.wg);
+                if (par.compBiasCorrection == true){
+                    SubstitutionMatrix::calcGlobalAaBiasCorrection(&subMat, pssmRes.pssm, pNullBuffer,
+                                                                   Sequence::PROFILE_AA_SIZE,
+                                                                   res.centerLength);
+                }
+
                 if (par.maskProfile == true) {
                     masker.mask(centerSequence, pssmRes);
                 }
@@ -234,6 +240,7 @@ int result2profile(int argc, const char **argv, const Command &command, bool ret
             MultipleAlignment::deleteMSA(&res);
             seqSet.clear();
         }
+        delete [] pNullBuffer;
     }
     resultWriter.close(returnAlnRes == false);
     resultReader.close();
