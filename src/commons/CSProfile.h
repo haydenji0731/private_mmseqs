@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <simd/simd.h>
+#include <PSSMCalculator.h>
 #include "LibraryReader.h"
 #include "Debug.h"
 #include "Util.h"
@@ -55,6 +56,7 @@ private:
 class CSProfile {
     ContextLibrary * ctxLib;
     float * profile;
+    unsigned char * pssm;
     float * pp;
     float * maximums;
     float * sums;
@@ -63,6 +65,8 @@ public:
     CSProfile(size_t maxSeqLen) {
         ctxLib = ContextLibrary::getContextLibraryInstance();
         this->profile = (float * )mem_align(16, Sequence::PROFILE_AA_SIZE * maxSeqLen * sizeof(float));
+        this->pssm = (unsigned char * )mem_align(16, Sequence::PROFILE_AA_SIZE * maxSeqLen * sizeof(unsigned char));
+
         this->pp =  (float * ) mem_align(16, 4000 * maxSeqLen * sizeof(float)); //TODO how can I avoid th 4000?
         this->maximums = new float[maxSeqLen];
         this->sums =  new float[maxSeqLen];
@@ -97,7 +101,7 @@ public:
         }
     }
 
-    float * computeProfile(Sequence * seq, float neff, float tau);
+    PSSMCalculator::Profile computeProfile(Sequence * seq, float neff, float tau);
 
 };
 

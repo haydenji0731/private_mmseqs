@@ -89,7 +89,7 @@ PSSMCalculator::Profile PSSMCalculator::computePSSMFromMSA(size_t setSize,
         }
     }
     // create PSSM profile scaled with 8 bit (needed by the prefilter)
-    computeLogPSSM(pssm, profile, 8.0, queryLength, 0.0);
+    computeLogPSSM(subMat, pssm, profile, 8.0, queryLength, 0.0);
 //    PSSMCalculator::printProfile(queryLength);
 
 //    PSSMCalculator::printPSSM(queryLength);
@@ -129,7 +129,7 @@ void PSSMCalculator::printPSSM(size_t queryLength){
     }
 }
 
-void PSSMCalculator::computeLogPSSM(char *pssm, const float *profile, float bitFactor,
+void PSSMCalculator::computeLogPSSM(BaseMatrix * subMat, char *pssm, const float *profile, float bitFactor,
                                     size_t queryLength, float scoreBias) {
     for(size_t pos = 0; pos < queryLength; pos++) {
 

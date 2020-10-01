@@ -40,6 +40,14 @@ public:
     // Compute weight for sequence based on "Position-based Sequence Weights' (1994)
     static void computeSequenceWeights(float *seqWeight, size_t queryLength, size_t setSize, const char **msaSeqs);
 
+    // compute position-specific scoring matrix PSSM score
+    // 1.) convert PFM to PPM (position probability matrix)
+    //     Both PPMs assume statistical independence between positions in the pattern
+    // 2.) PSSM Log odds score
+    //     M_{aa,pos}={log(M_{aa,pos} / b_{aa}).
+    static void computeLogPSSM(BaseMatrix * subMat, char *pssm, const float *profile, float bitFactor, size_t queryLength, float scoreBias);
+
+
 private:
     BaseMatrix* subMat;
 
@@ -84,12 +92,6 @@ private:
     size_t maxSeqLength;
     size_t maxSetSize;
 
-    // compute position-specific scoring matrix PSSM score
-    // 1.) convert PFM to PPM (position probability matrix)
-    //     Both PPMs assume statistical independence between positions in the pattern
-    // 2.) PSSM Log odds score
-    //     M_{aa,pos}={log(M_{aa,pos} / b_{aa}).
-    void computeLogPSSM(char *pssm, const float *profile, float bitFactor, size_t queryLength, float scoreBias);
 
     // compute the Neff_M per column -p log(p)
     void computeNeff_M(float *frequency, float *seqWeight, float *Neff_M, size_t queryLength, size_t setSize, char const **msaSeqs);

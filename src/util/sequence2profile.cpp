@@ -32,10 +32,10 @@ int sequence2profile(int argc, const char **argv, const Command& command) {
     {
         Sequence seq(par.maxSeqLen, sequenceDb.getDbtype(), &subMat, 0, false, false);
         CSProfile ps(par.maxSeqLen);
-        char * data = new char[sequenceDb.getMaxSeqLen() * Sequence::PROFILE_READIN_SIZE];
         ProbabilityMatrix probMatrix(subMat);
         PSSMMasker masker(sequenceDb.getMaxSeqLen(), probMatrix, subMat);
-
+        std::string result;
+        result.reserve(sequenceDb.getMaxSeqLen() * Sequence::PROFILE_READIN_SIZE);
 #pragma omp for schedule(static)
         for (size_t id = 0; id < sequenceDb.getSize(); id++) {
             int thread_idx = 0;
@@ -48,26 +48,16 @@ int sequence2profile(int argc, const char **argv, const Command& command) {
             unsigned int seqLen = sequenceDb.getSeqLen(id);
 
             seq.mapSequence(id, queryKey, seqData, seqLen);
-            float * prob =  ps.computeProfile(&seq, par.neff, par.tau);
+            PSSMCalculator::Profile pssmRes =  ps.computeProfile(&seq, par.neff, par.tau);
 //            if (par.maskProfile == true) {
 //                masker.mask(seq, pssmRes);
 //            }
-//            pssmRes.toBuffer(centerSequence, subMat, result);
+            pssmRes.toBuffer(seq, subMat, result);
             size_t idx = 0;
-            for (int i = 0; i < seq.L; i++) {
-                for (size_t aa = 0; aa < Sequence::PROFILE_AA_SIZE;aa++)
-                {
-                    data[idx++] = prob[i*Sequence::PROFILE_READIN_SIZE + aa];
-                    //std::cout<<"\t"<<(int)data[idx-1];
-                }
-                //std::cout<<std::endl;
-                data[idx++] = static_cast<unsigned char>(seq.numSequence[i]); // query
-                data[idx++] = static_cast<unsigned char>(seq.numSequence[i]); // consensus
-                data[idx++] = MathUtil::convertNeffToChar(prob[i*Sequence::PROFILE_READIN_SIZE + Sequence::PROFILE_AA_SIZE]);
-            }
-            resultDbw.writeData(data, idx, queryKey, thread_idx);
+
+            resultDbw.writeData(result.c_str(), result.size(), idx, queryKey, thread_idx);
+            result.clear();
         }
-        delete [] data;
     }
     sequenceDb.close();
     resultDbw.close();
