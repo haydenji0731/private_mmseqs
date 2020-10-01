@@ -50,8 +50,8 @@ void ContextLibrary::read(std::string &libStr){
         for(size_t i = 0; i < wlen_; i++) { // 24 instead of 20 for memory alignment
             context_weights[k][i] = (float *)mem_align(ALIGN_FLOAT, 24 * sizeof(float));
         }
-        pc_weights[k] = (float *)mem_align(16, 24 * sizeof(float));
-        pc[k] = (float *)mem_align(16, 24 * sizeof(float));
+        pc_weights[k] = (float *)mem_align(ALIGN_FLOAT, 24 * sizeof(float));
+        pc[k] = (float *)mem_align(ALIGN_FLOAT, 24 * sizeof(float));
         readContextProfile(in, reader, context_weights[k], pc_weights[k], pc[k]);
         //            for(size_t i = 0; i < wlen_; i++) {
         //                std::cout << i<< "\t";
@@ -355,9 +355,7 @@ float * CSProfile::computeProfile(unsigned char * numSeq, int seqLen, float * co
                 contextScore = computeSeqContextScore(ctxLib->context_weights[k], numSeq, seqLen, i, center);
             }
             ppi[i] = bias + contextScore;
-            if (ppi[i] > maximums[i]){
-                maximums[i] = ppi[i];  // needed for log-sum-exp trick
-            }
+            maximums[i] = std::max(maximums[i], ppi[i]);
         }
     }
     // Log-sum-exp trick begins here
@@ -366,12 +364,6 @@ float * CSProfile::computeProfile(unsigned char * numSeq, int seqLen, float * co
     simd_float vscalingLog2 = simdf32_set(scalingLog2);
     for (size_t k = 0; k < ctxLib->libSize; ++k){
         float* ppi = &pp[k * segmentSize * VECSIZE_FLOAT];
-//        for (int i = 0; i < seqLen; i++) {
-            // exp(x) = 2^(1/log(2) * x)
-            // http://www.wolframalpha.com/input/?i=exp(x)+%3D++2%5E(y+*+x)+solve+for+y
-//            sums[i] += MathUtil::fpow2((ppi[i] - maximums[i]) * scalingLog2);
-//            std::cout << ppi[i] << "\t" << maximums[i] << "\t" << sums[i] << std::endl;
-//        }
         for (int i = 0; i < segmentSize; i++) {
 //            // exp(x) = 2^(1/log(2) * x)
 //            // sums[i] += MathUtil::fpow2((ppi[i] - maximums[i]) * scalingLog2);
@@ -383,9 +375,7 @@ float * CSProfile::computeProfile(unsigned char * numSeq, int seqLen, float * co
             simd_float vppi_vmax_log2 = simdf32_mul(vppi_vmax, vscalingLog2);
             simd_float vfpow2 = simdf32_fpow2(vppi_vmax_log2);
             simdf32_store(&sums[i*VECSIZE_FLOAT], simdf32_add(vsum, vfpow2));
-////            std::cout << ppi[i] << "\t" << maximums[i] << "\t" << sums[i] << std::endl;
-////            std::cout << ppi[i+1] << "\t" << maximums[i+1] << "\t" << sums[i+1] << std::endl;
-//
+
         }
     }
     for (int i = 0; i < seqLen; i++) {
@@ -393,31 +383,37 @@ float * CSProfile::computeProfile(unsigned char * numSeq, int seqLen, float * co
     }
     for (size_t k = 0; k < ctxLib->libSize; ++k) {
         float* ppi = &pp[k * segmentSize * VECSIZE_FLOAT];
-        for (int i = 0; i < seqLen; i++) {
-            ppi[i] = MathUtil::fpow2((ppi[i] - maximums[i]) * scalingLog2);
+        for (int i = 0; i < segmentSize; i++) {
+            // ppi[i] = MathUtil::fpow2((ppi[i] - maximums[i]) * scalingLog2);
+            simd_float vppi = simdf32_load(&ppi[i*VECSIZE_FLOAT]);
+            simd_float vmax = simdf32_load(&maximums[i*VECSIZE_FLOAT]);
+            simd_float vppi_vmax = simdf32_sub(vppi, vmax);
+            simd_float vppi_vmax_log2 = simdf32_mul(vppi_vmax, vscalingLog2);
+            simd_float vfpow2 = simdf32_fpow2(vppi_vmax_log2);
+            simdf32_store(&ppi[i*VECSIZE_FLOAT], vfpow2);
         }
     }
     // Calculate pseudocount vector P(a|X_i)
-    std::fill(profile, profile + (seqLen * Sequence::PROFILE_AA_SIZE), 0.0);
+    std::fill(profile, profile + (seqLen * (Sequence::PROFILE_AA_SIZE + 4)), 0.0);
 
     for (size_t k = 0; k < ctxLib->libSize; ++k){
         float* ppi = &pp[k * segmentSize * VECSIZE_FLOAT];
         float * ctxLib_pc = ctxLib->pc[k];
         for (int i = 0; i < seqLen; i++) {
-            float *pc = &profile[i * Sequence::PROFILE_AA_SIZE];
-            __m128 simd_ppi = _mm_set_ps1(ppi[i]);
-            for (size_t a = 0; a < Sequence::PROFILE_AA_SIZE; a += 4) {
+            float *pc = &profile[i * (Sequence::PROFILE_AA_SIZE + 4)];
+            simd_float simd_ppi = simdf32_set(ppi[i]);
+            for (size_t a = 0; a < Sequence::PROFILE_AA_SIZE; a += VECSIZE_FLOAT) {
                 //pc[a] += ppi[i] * ctxLib_pc[a];
-                __m128 ctxLib_pc_a = _mm_load_ps(&ctxLib_pc[a]);
-                __m128 pc_a = _mm_load_ps(&pc[a]);
-                __m128 pc_res = _mm_add_ps(pc_a, _mm_mul_ps(ctxLib_pc_a, simd_ppi));
-                _mm_store_ps(&pc[a], pc_res);
+                simd_float ctxLib_pc_a = simdf32_load(&ctxLib_pc[a]);
+                simd_float pc_a = simdf32_load(&pc[a]);
+                simd_float pc_res = simdf32_add(pc_a, simdf32_mul(ctxLib_pc_a, simd_ppi));
+                simdf32_store(&pc[a], pc_res);
             }
         }
     }
 
     for (int i = 0; i < seqLen; i++) {
-        MathUtil::NormalizeTo1(&profile[i * Sequence::PROFILE_AA_SIZE], Sequence::PROFILE_AA_SIZE);
+        MathUtil::NormalizeTo1(&profile[i * (Sequence::PROFILE_AA_SIZE+4)], Sequence::PROFILE_AA_SIZE);
         //for(size_t a = 0; a < Sequence::PROFILE_AA_SIZE; ++a){
         //    printf("%f\t",profile[i * Sequence::PROFILE_AA_SIZE + a]);
         //}
@@ -430,9 +426,9 @@ float * CSProfile::computeProfile(unsigned char * numSeq, int seqLen, float * co
             float tau = std::min(1.0, pca / (1.0 + Neff_M[i] / pcb));
             float t = 1 - tau;
             for (size_t a = 0; a < Sequence::PROFILE_AA_SIZE; ++a) {
-                float prob = profile[i*Sequence::PROFILE_AA_SIZE + a];
+                float prob = profile[(i*(Sequence::PROFILE_AA_SIZE+4)) + a];
                 float counts = count[(i*(Sequence::PROFILE_AA_SIZE+4)) + a];
-                profile[i*Sequence::PROFILE_AA_SIZE + a] = tau * prob + t * counts / Neff_M[i];
+                profile[(i*(Sequence::PROFILE_AA_SIZE+4)) + a] = tau * prob + t * counts / Neff_M[i];
             }
         }
     } else{
@@ -441,13 +437,13 @@ float * CSProfile::computeProfile(unsigned char * numSeq, int seqLen, float * co
         double t = 1 - tau;
         for (int i = 0; i < seqLen; ++i) {
             for (int a = 0; a < 20; ++a) {
-                profile[i*Sequence::PROFILE_AA_SIZE + a] *= tau;
+                profile[(i*(Sequence::PROFILE_AA_SIZE+4)) + a] *= tau;
             }
-            profile[i * Sequence::PROFILE_AA_SIZE + numSeq[i]] += t;
+            profile[(i*(Sequence::PROFILE_AA_SIZE+4)) + numSeq[i]] += t;
         }
     }
     for (int i = 0; i < seqLen; ++i) {
-        MathUtil::NormalizeTo1(&profile[i*Sequence::PROFILE_AA_SIZE], Sequence::PROFILE_AA_SIZE);
+        MathUtil::NormalizeTo1(&profile[i*(Sequence::PROFILE_AA_SIZE + 4)], Sequence::PROFILE_AA_SIZE);
     }
     return profile;
 }

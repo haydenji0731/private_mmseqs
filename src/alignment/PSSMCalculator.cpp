@@ -87,14 +87,14 @@ PSSMCalculator::Profile PSSMCalculator::computePSSMFromMSA(size_t setSize,
             preparePseudoCounts(matchWeight, pseudocountsWeight, Sequence::PROFILE_AA_SIZE, queryLength, (const float **) subMat->subMatrixPseudoCounts);
             //    SubstitutionMatrix::print(subMat->subMatrixPseudoCounts, subMat->num2aa, 20 );
             computePseudoCounts(profile, matchWeight, pseudocountsWeight, Sequence::PROFILE_AA_SIZE, Neff_M, queryLength, pca, pcb);
-            computeLogPSSM(subMat, pssm, profile, 8.0, queryLength, 0.0);
-            return Profile(pssm, profile, Neff_M, consensusSequence);
-
         }else{
             fillCounteProfile(counts, matchWeight, Neff_M, queryLength);
-            float * profile = ps.computeProfileCs(static_cast<int>(queryLength), counts, Neff_M);
-            computeLogPSSM(subMat, pssm, profile, 8.0, queryLength, 0.0);
-            return Profile(pssm, profile, Neff_M, consensusSequence);
+            float * csprofile = ps.computeProfileCs(static_cast<int>(queryLength), counts, Neff_M);
+            for (size_t pos = 0; pos < queryLength; pos++) {
+                for (size_t aa = 0; aa < Sequence::PROFILE_AA_SIZE; ++aa) {
+                    this->profile[pos * Sequence::PROFILE_AA_SIZE + aa] = csprofile[(pos * (Sequence::PROFILE_AA_SIZE + 4)) + aa];
+                }
+            }
         }
     }else{
         for (size_t pos = 0; pos < queryLength; pos++) {
@@ -102,8 +102,10 @@ PSSMCalculator::Profile PSSMCalculator::computePSSMFromMSA(size_t setSize,
                 profile[pos * Sequence::PROFILE_AA_SIZE + aa] = matchWeight[pos * Sequence::PROFILE_AA_SIZE + aa];;
             }
         }
-        return Profile(pssm, profile, Neff_M, consensusSequence);
     }
+
+    computeLogPSSM(subMat, pssm, profile, 8.0, queryLength, 0.0);
+    return Profile(pssm, profile, Neff_M, consensusSequence);
 //    PSSMCalculator::printProfile(queryLength);
 //    PSSMCalculator::printPSSM(queryLength);
 }
