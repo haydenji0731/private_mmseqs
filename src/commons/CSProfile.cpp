@@ -162,6 +162,7 @@ inline float CSProfile::computeProfileContextScore(float ** context_weights,
     const size_t end = std::min(static_cast<size_t>(L), idx + center + 1);
     simd_float vTotalScore = simdf32_setzero();
     for(size_t i = beg, j = beg - idx + center; i < end; ++i, ++j) {
+#ifdef AVX2
         simd_float vContextWeight1 = simdf32_load(&context_weights[j][0]);
         simd_float vCount1 = simdf32_load(&counts[i * (Sequence::PROFILE_AA_SIZE + 4) + 0]);
         simd_float vScore1 = simdf32_mul(vContextWeight1, vCount1);
@@ -174,6 +175,24 @@ inline float CSProfile::computeProfileContextScore(float ** context_weights,
         vScore1 = simdf32_add(vScore2, vScore1);
         vScore1 = simdf32_add(vScore3, vScore1);
         vTotalScore = simdf32_add(vTotalScore, vScore1);
+#else
+        simd_float vContextWeight1 = simdf32_load(&context_weights[j][0]);
+        simd_float vCount1 = simdf32_load(&counts[i * (Sequence::PROFILE_AA_SIZE + 4) + 0]);
+        simd_float vScore1 = simdf32_mul(vContextWeight1, vCount1);
+        simd_float vContextWeight2 = simdf32_load(&context_weights[j][VECSIZE_FLOAT]);
+        simd_float vCount2 = simdf32_load(&counts[i * (Sequence::PROFILE_AA_SIZE + 4) + (VECSIZE_FLOAT)]);
+        simd_float vScore2 = simdf32_mul(vContextWeight2, vCount2);
+        simd_float vContextWeight3 = simdf32_load(&context_weights[j][2*VECSIZE_FLOAT]);
+        simd_float vCount3 = simdf32_load(&counts[i * (Sequence::PROFILE_AA_SIZE + 4) + (2*VECSIZE_FLOAT)]);
+        simd_float vScore3 = simdf32_mul(vContextWeight3, vCount3);
+        simd_float vContextWeight4 = simdf32_load(&context_weights[j][3*VECSIZE_FLOAT]);
+        simd_float vCount4 = simdf32_load(&counts[i * (Sequence::PROFILE_AA_SIZE + 4) + (3*VECSIZE_FLOAT)]);
+        simd_float vScore4 = simdf32_mul(vContextWeight4, vCount4);
+        vScore1 = simdf32_add(vScore1, vScore2);
+        vScore2 = simdf32_add(vScore3, vScore4);
+        vScore1 = simdf32_add(vScore1, vScore2);
+        vTotalScore = simdf32_add(vTotalScore, vScore1);
+#endif
     }
     return simdf32_hadd(vTotalScore);
     //return score;
