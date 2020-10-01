@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <string>
+#include <CSProfile.h>
 
 class BaseMatrix;
 class Sequence;
@@ -51,11 +52,17 @@ public:
 private:
     BaseMatrix* subMat;
 
+    // cs profiles
+    CSProfile ps;
+
     // contains sequence weights (global)
     float * seqWeight;
 
     // contains MSA AA matchWeight
     float * matchWeight;
+
+    // counts for cs pseudo counts
+    float * counts;
 
     // contains MSA AA pseudocount weight
     float * pseudocountsWeight;
@@ -109,6 +116,8 @@ private:
     void computeConsensusSequence(unsigned char * consensusSeq, float *frequency, size_t queryLength, double *back, char *num2aa);
 
     void increaseSetSize(size_t newSetSize);
+
+    void fillCounteProfile(float *counts, float *matchWeight, float *Neff_M, size_t queryLength);
 };
 
 

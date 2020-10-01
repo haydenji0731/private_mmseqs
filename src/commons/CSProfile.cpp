@@ -155,7 +155,22 @@ void ContextLibrary::readContextProfile(std::stringstream &in, LibraryReader &re
     }
 }
 
-inline float CSProfile::computeContextScore(float ** context_weights,
+inline float CSProfile::computeProfileContextScore(float ** context_weights,
+                                               const float * counts, const int L,
+                                               size_t idx, size_t center) {
+    const size_t beg = std::max(0, static_cast<int>(idx - center));
+    const size_t end = std::min(static_cast<size_t>(L), idx + center + 1);
+    double score = 0.0;
+    for(size_t i = beg, j = beg - idx + center; i < end; ++i, ++j) {
+        for (size_t a = 0; a < Sequence::PROFILE_AA_SIZE; ++a){
+            score += context_weights[j][a] * counts[i*Sequence::PROFILE_AA_SIZE + a];
+        }
+    }
+    return score;
+}
+
+
+inline float CSProfile::computeSeqContextScore(float ** context_weights,
                                             const unsigned char * seq, const int L,
                                             size_t idx, size_t center) {
     const size_t beg = std::max(0, static_cast<int>(idx - center));
@@ -302,21 +317,32 @@ inline float CSProfile::computeContextScore(float ** context_weights,
 }
 
 
+float * CSProfile::computeProfileCs(int seqLen, float * count, float * Neff_M){
+    return computeProfile<Parameters::DBTYPE_HMM_PROFILE>(NULL, seqLen, count, Neff_M, 1.0, 0.9);
+}
+
+float * CSProfile::computeSequenceCs(unsigned char * numSeq, int seqLen, float neff, float pTau) {
+    return computeProfile<Parameters::DBTYPE_AMINO_ACIDS>(numSeq, seqLen, NULL, NULL, neff, pTau);
+}
 
 
-
-
-PSSMCalculator::Profile CSProfile::computeProfile(BaseMatrix * subMat, Sequence * seq, float neff, float pTau){
+template<int type>
+float * CSProfile::computeProfile(unsigned char * numSeq, int seqLen, float * count, float * Neff_M, float neff, float pTau){
     //std::cout << "Adding pseudocounts ...\n";
     const int center = ctxLib->center;
     // Calculate posterior probability ppi[k] of state k given sequence window
     // around position 'i'
-    std::fill(maximums, maximums + seq->L, -FLT_MAX);
+    std::fill(maximums, maximums + seqLen, -FLT_MAX);
     for (size_t k = 0; k < ctxLib->libSize; ++k) {
-        float* ppi = &pp[k * seq->L];
+        float* ppi = &pp[k * seqLen];
         float bias = ctxLib->bias_weight[k];
-        for (int i = 0; i < seq->L; i++) {
-            float contextScore = computeContextScore(ctxLib->context_weights[k], seq->numSequence, seq->L, i, center);
+        for (int i = 0; i < seqLen; i++) {
+            float contextScore;
+            if(type == Parameters::DBTYPE_HMM_PROFILE){
+                contextScore = computeProfileContextScore(ctxLib->context_weights[k], count, seqLen, i, center);
+            } else {
+                contextScore = computeSeqContextScore(ctxLib->context_weights[k], numSeq, seqLen, i, center);
+            }
             ppi[i] = bias + contextScore;
             if (ppi[i] > maximums[i]){
                 maximums[i] = ppi[i];  // needed for log-sum-exp trick
@@ -324,52 +350,76 @@ PSSMCalculator::Profile CSProfile::computeProfile(BaseMatrix * subMat, Sequence 
         }
     }
     // Log-sum-exp trick begins here
-    std::fill(sums, sums + seq->L, 0.0);
+    std::fill(sums, sums + seqLen, 0.0);
     const float scalingLog2 = 1/log(2.0);
     for (size_t k = 0; k < ctxLib->libSize; ++k){
-        float* ppi = &pp[k * seq->L];
-        for (int i = 0; i < seq->L; i++) {
+        float* ppi = &pp[k * seqLen];
+        for (int i = 0; i < seqLen; i++) {
             // exp(x) = 2^(1/log(2) * x)
             // http://www.wolframalpha.com/input/?i=exp(x)+%3D++2%5E(y+*+x)+solve+for+y
             sums[i] += MathUtil::fpow2((ppi[i] - maximums[i]) * scalingLog2);
         }
     }
-    for (int i = 0; i < seq->L; i++) {
+    for (int i = 0; i < seqLen; i++) {
         maximums[i] = maximums[i] + log(sums[i]);
     }
     for (size_t k = 0; k < ctxLib->libSize; ++k) {
-        float *ppi = &pp[k * seq->L];
-        for (int i = 0; i < seq->L; i++) {
+        float *ppi = &pp[k * seqLen];
+        for (int i = 0; i < seqLen; i++) {
             ppi[i] = MathUtil::fpow2((ppi[i] - maximums[i]) * scalingLog2);
         }
     }
     // Calculate pseudocount vector P(a|X_i)
-    std::fill(profile, profile + (seq->L * Sequence::PROFILE_AA_SIZE), 0.0);
-    calculatePseudoeCounts(seq, pp, profile, ctxLib);
-    for (int i = 0; i < seq->L; i++) {
+    std::fill(profile, profile + (seqLen * Sequence::PROFILE_AA_SIZE), 0.0);
+
+    for (size_t k = 0; k < ctxLib->libSize; ++k){
+        float * ppi = &pp[k * seqLen];
+        float * ctxLib_pc = ctxLib->pc[k];
+        for (int i = 0; i < seqLen; i++) {
+            float *pc = &profile[i * Sequence::PROFILE_AA_SIZE];
+            __m128 simd_ppi = _mm_set_ps1(ppi[i]);
+            for (size_t a = 0; a < Sequence::PROFILE_AA_SIZE; a += 4) {
+                //pc[a] += ppi[i] * ctxLib_pc[a];
+                __m128 ctxLib_pc_a = _mm_load_ps(&ctxLib_pc[a]);
+                __m128 pc_a = _mm_load_ps(&pc[a]);
+                __m128 pc_res = _mm_add_ps(pc_a, _mm_mul_ps(ctxLib_pc_a, simd_ppi));
+                _mm_store_ps(&pc[a], pc_res);
+            }
+        }
+    }
+
+    for (int i = 0; i < seqLen; i++) {
         MathUtil::NormalizeTo1(&profile[i * Sequence::PROFILE_AA_SIZE], Sequence::PROFILE_AA_SIZE);
         //for(size_t a = 0; a < Sequence::PROFILE_AA_SIZE; ++a){
         //    printf("%f\t",profile[i * Sequence::PROFILE_AA_SIZE + a]);
         //}
         //printf("\n");
     }
-
-    //AdmixTo(seq, p, admix);
-    double tau = pTau; //TODO
-    double t = 1 - tau;
-    for (int i = 0; i < seq->L; ++i) {
-        for (int a = 0; a < 20; ++a) {
-            profile[i*Sequence::PROFILE_AA_SIZE + a] *= tau;
+    if(type == Parameters::DBTYPE_HMM_PROFILE) {
+        for (int i = 0; i < seqLen; ++i) {
+            float pca = 0.9;
+            float pcb = 4.0;
+            float tau = std::min(1.0, pca / (1.0 + neff / pcb));
+            float t = 1 - tau;
+            for (size_t a = 0; a < Sequence::PROFILE_AA_SIZE; ++a) {
+                float prob = profile[i*Sequence::PROFILE_AA_SIZE + a];
+                float counts = count[i*Sequence::PROFILE_AA_SIZE + a];
+                profile[i*Sequence::PROFILE_AA_SIZE + a] = tau * prob + t * counts / Neff_M[i];
+            }
         }
-        profile[i * Sequence::PROFILE_AA_SIZE + seq->numSequence[i]] += t;
-        // set neff
-        Neff_M[i] = neff;
-        consensusSequence[i] = seq->numSequence[i];
+    } else{
+        //AdmixTo(seq, p, admix);
+        double tau = pTau; //TODO
+        double t = 1 - tau;
+        for (int i = 0; i < seqLen; ++i) {
+            for (int a = 0; a < 20; ++a) {
+                profile[i*Sequence::PROFILE_AA_SIZE + a] *= tau;
+            }
+            profile[i * Sequence::PROFILE_AA_SIZE + numSeq[i]] += t;
+        }
     }
-    for (int i = 0; i < seq->L; ++i) {
+    for (int i = 0; i < seqLen; ++i) {
         MathUtil::NormalizeTo1(&profile[i*Sequence::PROFILE_AA_SIZE], Sequence::PROFILE_AA_SIZE);
     }
-    PSSMCalculator::computeLogPSSM(subMat, pssm, profile, 8.0,  seq->L, 0.0);
-
-    return PSSMCalculator::Profile(pssm, profile, Neff_M, consensusSequence);
+    return profile;
 }

@@ -20,7 +20,6 @@ int result2profile(int argc, const char **argv, const Command &command, bool ret
     Parameters &par = Parameters::getInstance();
     // default for result2profile to filter MSA
     par.filterMsa = 1;
-    par.pca = 0.0;
     if (returnAlnRes) {
         par.PARAM_FILTER_MAX_SEQ_ID.removeCategory(MMseqsParameter::COMMAND_EXPERT);
         par.PARAM_FILTER_QID.removeCategory(MMseqsParameter::COMMAND_EXPERT);

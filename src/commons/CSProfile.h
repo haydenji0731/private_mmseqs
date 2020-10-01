@@ -7,7 +7,6 @@
 
 #include <stdlib.h>
 #include <simd/simd.h>
-#include <PSSMCalculator.h>
 #include "LibraryReader.h"
 #include "Debug.h"
 #include "Util.h"
@@ -56,9 +55,6 @@ private:
 class CSProfile {
     ContextLibrary * ctxLib;
     float * profile;
-    char * pssm;
-    unsigned char * consensusSequence;
-    float * Neff_M;
     float * pp;
     float * maximums;
     float * sums;
@@ -67,9 +63,6 @@ public:
     CSProfile(size_t maxSeqLen) {
         ctxLib = ContextLibrary::getContextLibraryInstance();
         this->profile = (float * )mem_align(16, Sequence::PROFILE_AA_SIZE * maxSeqLen * sizeof(float));
-        this->pssm = (char * )mem_align(16, Sequence::PROFILE_AA_SIZE * maxSeqLen * sizeof(char));
-        this->consensusSequence = new unsigned char[maxSeqLen];
-        this->Neff_M = new float[maxSeqLen];
         this->pp =  (float * ) mem_align(16, 4000 * maxSeqLen * sizeof(float)); //TODO how can I avoid th 4000?
         this->maximums = new float[maxSeqLen];
         this->sums =  new float[maxSeqLen];
@@ -77,38 +70,24 @@ public:
 
     ~CSProfile(){
         free(profile);
-        free(pssm);
         free(pp);
-        delete [] consensusSequence;
-        delete [] Neff_M;
         delete [] maximums;
         delete [] sums;
     }
 
-    float computeContextScore(float ** context_weights,
+    float computeSeqContextScore(float ** context_weights,
                               const unsigned char * seq, const int L,
                               size_t idx, size_t center);
 
-    void calculatePseudoeCounts(Sequence * seq, float * pp, float * profile,ContextLibrary * ctxLib){
-        for (size_t k = 0; k < ctxLib->libSize; ++k){
-            float * ppi = &pp[k * seq->L];
-            float * ctxLib_pc = ctxLib->pc[k];
-            for (int i = 0; i < seq->L; i++) {
-                float *pc = &profile[i * Sequence::PROFILE_AA_SIZE];
-                __m128 simd_ppi = _mm_set_ps1(ppi[i]);
-                for (size_t a = 0; a < Sequence::PROFILE_AA_SIZE; a += 4) {
-                    //pc[a] += ppi[i] * ctxLib_pc[a];
-                    __m128 ctxLib_pc_a = _mm_load_ps(&ctxLib_pc[a]);
-                    __m128 pc_a = _mm_load_ps(&pc[a]);
-                    __m128 pc_res = _mm_add_ps(pc_a, _mm_mul_ps(ctxLib_pc_a, simd_ppi));
-                    _mm_store_ps(&pc[a], pc_res);
-                }
-            }
-        }
-    }
+    float computeProfileContextScore(float ** context_weights,
+                                 const float * counts, const int L,
+                                 size_t idx, size_t center);
 
-    PSSMCalculator::Profile computeProfile(BaseMatrix * subMat, Sequence * seq, float neff, float tau);
-
+    float * computeProfileCs(int seqLen, float * count, float * Neff_M);
+    float * computeSequenceCs(unsigned char * numSeq, int seqLen, float neff, float tau);
+private:
+    template<int type>
+    float * computeProfile(unsigned char * numSeq, int seqLen, float * count, float * Neff_M, float neff, float pTau);
 };
 
 

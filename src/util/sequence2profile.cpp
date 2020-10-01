@@ -34,6 +34,10 @@ int sequence2profile(int argc, const char **argv, const Command& command) {
         CSProfile ps(par.maxSeqLen);
         ProbabilityMatrix probMatrix(subMat);
         PSSMMasker masker(sequenceDb.getMaxSeqLen(), probMatrix, subMat);
+        char * pssm = (char * )mem_align(16, Sequence::PROFILE_AA_SIZE * sequenceDb.getMaxSeqLen() * sizeof(char));
+        float * Neff_M = new float[sequenceDb.getMaxSeqLen()];
+        std::fill(Neff_M, Neff_M + sequenceDb.getMaxSeqLen(), 1.0f);
+
         int thread_idx = 0;
 #ifdef OPENMP
         thread_idx = omp_get_thread_num();
@@ -48,15 +52,19 @@ int sequence2profile(int argc, const char **argv, const Command& command) {
             unsigned int seqLen = sequenceDb.getSeqLen(id);
 
             seq.mapSequence(id, queryKey, seqData, seqLen);
-            PSSMCalculator::Profile pssmRes = ps.computeProfile(&subMat, &seq, par.neff, par.tau);
-//            if (par.maskProfile == true) {
-//                masker.mask(seq, pssmRes);
-//            }
+            float * profile = ps.computeSequenceCs(seq.numSequence, seq.L, par.neff, par.tau);
+            PSSMCalculator::computeLogPSSM(&subMat, pssm, profile, 8.0,  seq.L, 0.0);
+            PSSMCalculator::Profile pssmRes(pssm, profile, Neff_M, seq.numSequence);
+            if (par.maskProfile == true) {
+                masker.mask(seq, pssmRes);
+            }
             pssmRes.toBuffer(seq, subMat, result);
 
             resultDbw.writeData(result.c_str(), result.size(), queryKey, thread_idx);
             result.clear();
         }
+        free(pssm);
+        delete [] Neff_M;
     }
     sequenceDb.close();
     resultDbw.close();
