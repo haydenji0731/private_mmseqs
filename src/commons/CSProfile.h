@@ -63,16 +63,17 @@ public:
     CSProfile(size_t maxSeqLen) {
         ctxLib = ContextLibrary::getContextLibraryInstance();
         this->profile = (float * )mem_align(16, Sequence::PROFILE_AA_SIZE * maxSeqLen * sizeof(float));
-        this->pp =  (float * ) mem_align(16, 4000 * maxSeqLen * sizeof(float)); //TODO how can I avoid th 4000?
-        this->maximums = new float[maxSeqLen];
-        this->sums =  new float[maxSeqLen];
+        int segmentSize = (maxSeqLen+VECSIZE_FLOAT-1)/VECSIZE_FLOAT;
+        this->pp = (float * ) mem_align(ALIGN_FLOAT, 4000 * segmentSize * VECSIZE_FLOAT * sizeof(float));
+        this->maximums = (float * ) mem_align(ALIGN_FLOAT,  segmentSize * VECSIZE_FLOAT * sizeof(float));
+        this->sums = (float * ) mem_align(ALIGN_FLOAT,  segmentSize * VECSIZE_FLOAT * sizeof(float));
     };
 
     ~CSProfile(){
         free(profile);
         free(pp);
-        delete [] maximums;
-        delete [] sums;
+        free(maximums);
+        free(sums);
     }
 
     float computeSeqContextScore(float ** context_weights,
@@ -84,10 +85,10 @@ public:
                                  size_t idx, size_t center);
 
     float * computeProfileCs(int seqLen, float * count, float * Neff_M);
-    float * computeSequenceCs(unsigned char * numSeq, int seqLen, float neff, float tau);
+    float * computeSequenceCs(unsigned char * numSeq, int seqLen, float tau);
 private:
     template<int type>
-    float * computeProfile(unsigned char * numSeq, int seqLen, float * count, float * Neff_M, float neff, float pTau);
+    float * computeProfile(unsigned char * numSeq, int seqLen, float * count, float * Neff_M, float pTau);
 };
 
 
