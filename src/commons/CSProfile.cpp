@@ -346,8 +346,8 @@ inline float CSProfile::computeSeqContextScore(float ** context_weights,
 }
 
 
-float * CSProfile::computeProfileCs(int seqLen, float * count, float * Neff_M){
-    return computeProfile<Parameters::DBTYPE_HMM_PROFILE>(NULL, seqLen, count, Neff_M,  0.9);
+float * CSProfile::computeProfileCs(int seqLen, float * count, float * Neff_M, float pca, float pcb){
+    return computeProfile<Parameters::DBTYPE_HMM_PROFILE>(NULL, seqLen, count, Neff_M,  0.9, pca, pcb);
 }
 
 float * CSProfile::computeSequenceCs(unsigned char * numSeq, int seqLen, float pTau) {
@@ -356,7 +356,9 @@ float * CSProfile::computeSequenceCs(unsigned char * numSeq, int seqLen, float p
 
 
 template<int type>
-float * CSProfile::computeProfile(unsigned char * numSeq, int seqLen, float * count, float * Neff_M, float pTau){
+float * CSProfile::computeProfile(unsigned char * numSeq, int seqLen,
+                                  float * count, float * Neff_M,
+                                  float pTau, float pca, float pcb){
     //std::cout << "Adding pseudocounts ...\n";
     const int center = ctxLib->center;
     // Calculate posterior probability ppi[k] of state k given sequence window
@@ -440,8 +442,6 @@ float * CSProfile::computeProfile(unsigned char * numSeq, int seqLen, float * co
     }
     if(type == Parameters::DBTYPE_HMM_PROFILE) {
         for (int i = 0; i < seqLen; ++i) {
-            float pca = 0.9;
-            float pcb = 4.0;
             float tau = std::min(1.0, pca / (1.0 + Neff_M[i] / pcb));
             float t = 1 - tau;
             for (size_t a = 0; a < Sequence::PROFILE_AA_SIZE; ++a) {

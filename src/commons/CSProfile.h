@@ -84,11 +84,11 @@ public:
                                  const float * counts, const int L,
                                  size_t idx, size_t center);
 
-    float * computeProfileCs(int seqLen, float * count, float * Neff_M);
+    float * computeProfileCs(int seqLen, float * count, float * Neff_M, float pca, float pcb);
     float * computeSequenceCs(unsigned char * numSeq, int seqLen, float tau);
 private:
     template<int type>
-    float * computeProfile(unsigned char * numSeq, int seqLen, float * count, float * Neff_M, float pTau);
+    float * computeProfile(unsigned char * numSeq, int seqLen, float * count, float * Neff_M, float pTau, float pca, float pcb);
 };
 
 

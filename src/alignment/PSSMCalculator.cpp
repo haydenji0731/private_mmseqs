@@ -89,7 +89,7 @@ PSSMCalculator::Profile PSSMCalculator::computePSSMFromMSA(size_t setSize,
             computePseudoCounts(profile, matchWeight, pseudocountsWeight, Sequence::PROFILE_AA_SIZE, Neff_M, queryLength, pca, pcb);
         }else{
             fillCounteProfile(counts, matchWeight, Neff_M, queryLength);
-            float * csprofile = ps.computeProfileCs(static_cast<int>(queryLength), counts, Neff_M);
+            float * csprofile = ps.computeProfileCs(static_cast<int>(queryLength), counts, Neff_M, pca, pcb);
             for (size_t pos = 0; pos < queryLength; pos++) {
                 for (size_t aa = 0; aa < Sequence::PROFILE_AA_SIZE; ++aa) {
                     this->profile[pos * Sequence::PROFILE_AA_SIZE + aa] = csprofile[(pos * (Sequence::PROFILE_AA_SIZE + 4)) + aa];
