@@ -351,7 +351,7 @@ float * CSProfile::computeProfileCs(int seqLen, float * count, float * Neff_M, f
 }
 
 float * CSProfile::computeSequenceCs(unsigned char * numSeq, int seqLen, float pTau) {
-    return computeProfile<Parameters::DBTYPE_AMINO_ACIDS>(numSeq, seqLen, NULL, NULL, pTau);
+    return computeProfile<Parameters::DBTYPE_AMINO_ACIDS>(numSeq, seqLen, NULL, NULL, pTau, 0.0, 0.0);
 }
 
 
