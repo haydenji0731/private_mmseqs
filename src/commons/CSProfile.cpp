@@ -48,7 +48,7 @@ void ContextLibrary::read(std::string &libStr){
     for (k = 0; k < libSize && !in.eof(); ++k){
         context_weights[k]           = new float*[wlen_];
         for(size_t i = 0; i < wlen_; i++) { // 24 instead of 20 for memory alignment
-            context_weights[k][i] = (float *)mem_align(16, 24 * sizeof(float));
+            context_weights[k][i] = (float *)mem_align(ALIGN_FLOAT, 24 * sizeof(float));
         }
         pc_weights[k] = (float *)mem_align(16, 24 * sizeof(float));
         pc[k] = (float *)mem_align(16, 24 * sizeof(float));
@@ -156,17 +156,27 @@ void ContextLibrary::readContextProfile(std::stringstream &in, LibraryReader &re
 }
 
 inline float CSProfile::computeProfileContextScore(float ** context_weights,
-                                               const float * counts, const int L,
-                                               size_t idx, size_t center) {
+                                                   const float * counts, const int L,
+                                                   size_t idx, size_t center) {
     const size_t beg = std::max(0, static_cast<int>(idx - center));
     const size_t end = std::min(static_cast<size_t>(L), idx + center + 1);
-    double score = 0.0;
+    simd_float vTotalScore = simdf32_setzero();
     for(size_t i = beg, j = beg - idx + center; i < end; ++i, ++j) {
-        for (size_t a = 0; a < Sequence::PROFILE_AA_SIZE; ++a){
-            score += context_weights[j][a] * counts[i*Sequence::PROFILE_AA_SIZE + a];
-        }
+        simd_float vContextWeight1 = simdf32_load(&context_weights[j][0]);
+        simd_float vCount1 = simdf32_load(&counts[i * (Sequence::PROFILE_AA_SIZE + 4) + 0]);
+        simd_float vScore1 = simdf32_mul(vContextWeight1, vCount1);
+        simd_float vContextWeight2 = simdf32_load(&context_weights[j][VECSIZE_FLOAT]);
+        simd_float vCount2 = simdf32_load(&counts[i * (Sequence::PROFILE_AA_SIZE + 4) + (VECSIZE_FLOAT)]);
+        simd_float vScore2 = simdf32_mul(vContextWeight2, vCount2);
+        simd_float vContextWeight3 = simdf32_load(&context_weights[j][2*VECSIZE_FLOAT]);
+        simd_float vCount3 = simdf32_load(&counts[i * (Sequence::PROFILE_AA_SIZE + 4) + (2*VECSIZE_FLOAT)]);
+        simd_float vScore3 = simdf32_mul(vContextWeight3, vCount3);
+        vScore1 = simdf32_add(vScore2, vScore1);
+        vScore1 = simdf32_add(vScore3, vScore1);
+        vTotalScore = simdf32_add(vTotalScore, vScore1);
     }
-    return score;
+    return simdf32_hadd(vTotalScore);
+    //return score;
 }
 
 
@@ -333,6 +343,7 @@ float * CSProfile::computeProfile(unsigned char * numSeq, int seqLen, float * co
     // Calculate posterior probability ppi[k] of state k given sequence window
     // around position 'i'
     std::fill(maximums, maximums + seqLen, -FLT_MAX);
+    float tmpScore = 0.0;
     for (size_t k = 0; k < ctxLib->libSize; ++k) {
         float* ppi = &pp[k * seqLen];
         float bias = ctxLib->bias_weight[k];
@@ -399,11 +410,11 @@ float * CSProfile::computeProfile(unsigned char * numSeq, int seqLen, float * co
         for (int i = 0; i < seqLen; ++i) {
             float pca = 0.9;
             float pcb = 4.0;
-            float tau = std::min(1.0, pca / (1.0 + neff / pcb));
+            float tau = std::min(1.0, pca / (1.0 + Neff_M[i] / pcb));
             float t = 1 - tau;
             for (size_t a = 0; a < Sequence::PROFILE_AA_SIZE; ++a) {
                 float prob = profile[i*Sequence::PROFILE_AA_SIZE + a];
-                float counts = count[i*Sequence::PROFILE_AA_SIZE + a];
+                float counts = count[(i*(Sequence::PROFILE_AA_SIZE+4)) + a];
                 profile[i*Sequence::PROFILE_AA_SIZE + a] = tau * prob + t * counts / Neff_M[i];
             }
         }
