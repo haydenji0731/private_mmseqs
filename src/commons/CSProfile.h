@@ -56,7 +56,9 @@ private:
 class CSProfile {
     ContextLibrary * ctxLib;
     float * profile;
-    unsigned char * pssm;
+    char * pssm;
+    unsigned char * consensusSequence;
+    float * Neff_M;
     float * pp;
     float * maximums;
     float * sums;
@@ -65,8 +67,9 @@ public:
     CSProfile(size_t maxSeqLen) {
         ctxLib = ContextLibrary::getContextLibraryInstance();
         this->profile = (float * )mem_align(16, Sequence::PROFILE_AA_SIZE * maxSeqLen * sizeof(float));
-        this->pssm = (unsigned char * )mem_align(16, Sequence::PROFILE_AA_SIZE * maxSeqLen * sizeof(unsigned char));
-
+        this->pssm = (char * )mem_align(16, Sequence::PROFILE_AA_SIZE * maxSeqLen * sizeof(char));
+        this->consensusSequence = new unsigned char[maxSeqLen];
+        this->Neff_M = new float[maxSeqLen];
         this->pp =  (float * ) mem_align(16, 4000 * maxSeqLen * sizeof(float)); //TODO how can I avoid th 4000?
         this->maximums = new float[maxSeqLen];
         this->sums =  new float[maxSeqLen];
@@ -74,7 +77,10 @@ public:
 
     ~CSProfile(){
         free(profile);
+        free(pssm);
         free(pp);
+        delete [] consensusSequence;
+        delete [] Neff_M;
         delete [] maximums;
         delete [] sums;
     }
@@ -101,7 +107,7 @@ public:
         }
     }
 
-    PSSMCalculator::Profile computeProfile(Sequence * seq, float neff, float tau);
+    PSSMCalculator::Profile computeProfile(BaseMatrix * subMat, Sequence * seq, float neff, float tau);
 
 };
 

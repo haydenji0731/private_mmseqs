@@ -18,6 +18,7 @@ PSSMCalculator::PSSMCalculator(BaseMatrix *subMat, size_t maxSeqLength, size_t m
     this->Neff_M             = new float[(maxSeqLength + 1)];
     this->seqWeight          = (float*)malloc(maxSetSize * sizeof(float));
     this->pssm               = new char[(maxSeqLength + 1) * Sequence::PROFILE_AA_SIZE];
+    this->consensusSequence  = new unsigned char[maxSeqLength + 1];
     this->matchWeight        = (float *) malloc_simd_float(Sequence::PROFILE_AA_SIZE * (maxSeqLength + 1) * sizeof(float));
     this->pseudocountsWeight = (float *) malloc_simd_float(Sequence::PROFILE_AA_SIZE * (maxSeqLength + 1) * sizeof(float));
     this->nseqs              = new int[maxSeqLength + 1];
@@ -46,6 +47,7 @@ PSSMCalculator::~PSSMCalculator() {
     free(seqWeight);
     delete[] pssm;
     delete[] nseqs;
+    delete[] consensusSequence;
     free(matchWeight);
     free(pseudocountsWeight);
     free(w_contrib_backing);
@@ -75,7 +77,7 @@ PSSMCalculator::Profile PSSMCalculator::computePSSMFromMSA(size_t setSize,
         computeNeff_M(matchWeight, seqWeight, Neff_M, queryLength, setSize, msaSeqs);
     }
     // compute consensus sequence
-    std::string consensusSequence = computeConsensusSequence(matchWeight, queryLength, subMat->pBack, subMat->num2aa);
+    computeConsensusSequence(consensusSequence, matchWeight, queryLength, subMat->pBack, subMat->num2aa);
     if(pca > 0.0){
         // add pseudocounts (compute the scalar product between matchWeight and substitution matrix with pseudo counts)
         preparePseudoCounts(matchWeight, pseudocountsWeight, Sequence::PROFILE_AA_SIZE, queryLength, (const float **) subMat->subMatrixPseudoCounts);
@@ -463,8 +465,7 @@ void PSSMCalculator::computeContextSpecificWeights(float * matchWeight, float *w
     }
 }
 
-std::string PSSMCalculator::computeConsensusSequence(float *frequency, size_t queryLength, double *pBack, char *num2aa) {
-    std::string consens;
+void PSSMCalculator::computeConsensusSequence(unsigned char * consensusSeq, float *frequency, size_t queryLength, double *pBack, char *num2aa) {
     for (size_t pos = 0; pos < queryLength; pos++) {
         float maxw = 1E-8;
         int maxa = MultipleAlignment::ANY;
@@ -475,9 +476,8 @@ std::string PSSMCalculator::computeConsensusSequence(float *frequency, size_t qu
                 maxa = aa;
             }
         }
-        consens.push_back(num2aa[maxa]);
+        consensusSeq[pos]=num2aa[maxa];
     }
-    return consens;
 }
 
 void PSSMCalculator::Profile::toBuffer(Sequence &centerSequence, BaseMatrix& subMat, std::string &result) {

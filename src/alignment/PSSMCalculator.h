@@ -14,8 +14,8 @@ public:
         char * pssm;
         float * prob;
         const float * neffM;
-        std::string consensus;
-        Profile(char * pssm, float * prob, float * neffM, std::string consensus)
+        unsigned char * consensus;
+        Profile(char * pssm, float * prob, float * neffM, unsigned char * consensus)
                 : pssm(pssm), prob(prob), neffM(neffM), consensus(consensus) {};
         void toBuffer(const unsigned char* centerSequence, size_t centerSeqLen, BaseMatrix& subMat, std::string& result);
         void toBuffer(Sequence& centerSequence, BaseMatrix& subMat, std::string& result);
@@ -69,6 +69,9 @@ private:
     // PSSM contains log odds PSSM values
     char * pssm;
 
+    // Consensus sequence
+    unsigned char * consensusSequence;
+
     // number of sequences in subalignment i (only for DEBUGGING)
     int *nseqs;
 
@@ -103,7 +106,7 @@ private:
     float pca;
     float pcb;
 
-    std::string computeConsensusSequence(float *pDouble, size_t queryLength, double *back, char *num2aa);
+    void computeConsensusSequence(unsigned char * consensusSeq, float *frequency, size_t queryLength, double *back, char *num2aa);
 
     void increaseSetSize(size_t newSetSize);
 };

@@ -306,7 +306,7 @@ inline float CSProfile::computeContextScore(float ** context_weights,
 
 
 
-PSSMCalculator::Profile CSProfile::computeProfile(Sequence * seq, float neff, float pTau){
+PSSMCalculator::Profile CSProfile::computeProfile(BaseMatrix * subMat, Sequence * seq, float neff, float pTau){
     //std::cout << "Adding pseudocounts ...\n";
     const int center = ctxLib->center;
     // Calculate posterior probability ppi[k] of state k given sequence window
@@ -359,14 +359,15 @@ PSSMCalculator::Profile CSProfile::computeProfile(Sequence * seq, float neff, fl
     double t = 1 - tau;
     for (int i = 0; i < seq->L; ++i) {
         for (int a = 0; a < 20; ++a) {
-            profile[i*Sequence::PROFILE_READIN_SIZE + a] *= tau;
+            profile[i*Sequence::PROFILE_AA_SIZE + a] *= tau;
         }
-        profile[i * Sequence::PROFILE_READIN_SIZE + seq->numSequence[i]] += t;
+        profile[i * Sequence::PROFILE_AA_SIZE + seq->numSequence[i]] += t;
         // set neff
-        profile[i*Sequence::PROFILE_READIN_SIZE + Sequence::PROFILE_AA_SIZE] = neff;
+        Neff_M[i] = neff;
+        consensusSequence[i] = seq->numSequence[i];
     }
     for (int i = 0; i < seq->L; ++i) {
-        MathUtil::NormalizeTo1(&profile[i*Sequence::PROFILE_READIN_SIZE], Sequence::PROFILE_AA_SIZE);
+        MathUtil::NormalizeTo1(&profile[i*Sequence::PROFILE_AA_SIZE], Sequence::PROFILE_AA_SIZE);
     }
     PSSMCalculator::computeLogPSSM(subMat, pssm, profile, 8.0,  seq->L, 0.0);
 

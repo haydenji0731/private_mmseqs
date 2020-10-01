@@ -34,28 +34,27 @@ int sequence2profile(int argc, const char **argv, const Command& command) {
         CSProfile ps(par.maxSeqLen);
         ProbabilityMatrix probMatrix(subMat);
         PSSMMasker masker(sequenceDb.getMaxSeqLen(), probMatrix, subMat);
+        int thread_idx = 0;
+#ifdef OPENMP
+        thread_idx = omp_get_thread_num();
+#endif
         std::string result;
         result.reserve(sequenceDb.getMaxSeqLen() * Sequence::PROFILE_READIN_SIZE);
 #pragma omp for schedule(static)
         for (size_t id = 0; id < sequenceDb.getSize(); id++) {
-            int thread_idx = 0;
             progress.updateProgress();
-#ifdef OPENMP
-            thread_idx = omp_get_thread_num();
-#endif
             char *seqData     = sequenceDb.getData(id, thread_idx);
             unsigned int queryKey = sequenceDb.getDbKey(id);
             unsigned int seqLen = sequenceDb.getSeqLen(id);
 
             seq.mapSequence(id, queryKey, seqData, seqLen);
-            PSSMCalculator::Profile pssmRes =  ps.computeProfile(&seq, par.neff, par.tau);
+            PSSMCalculator::Profile pssmRes = ps.computeProfile(&subMat, &seq, par.neff, par.tau);
 //            if (par.maskProfile == true) {
 //                masker.mask(seq, pssmRes);
 //            }
             pssmRes.toBuffer(seq, subMat, result);
-            size_t idx = 0;
 
-            resultDbw.writeData(result.c_str(), result.size(), idx, queryKey, thread_idx);
+            resultDbw.writeData(result.c_str(), result.size(), queryKey, thread_idx);
             result.clear();
         }
     }
