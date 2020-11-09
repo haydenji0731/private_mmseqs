@@ -10,6 +10,7 @@
 #include "translated_search.sh.h"
 #include "blastp.sh.h"
 #include "blastn.sh.h"
+#include "iterativepp.sh.h"
 #include "Parameters.h"
 
 #include <iomanip>
@@ -72,7 +73,7 @@ int computeSearchMode(int queryDbType, int targetDbType, int targetSrcDbType, in
             return Parameters::SEARCH_MODE_FLAG_QUERY_PROFILE | Parameters::SEARCH_MODE_FLAG_TARGET_AMINOACID;
         }
 
-        // protein/profile
+        // protein/profile -> iterativepp
         if (Parameters::isEqualDbtype(queryDbType, Parameters::DBTYPE_AMINO_ACIDS) &&
             Parameters::isEqualDbtype(targetDbType, Parameters::DBTYPE_HMM_PROFILE)){
             return Parameters::SEARCH_MODE_FLAG_QUERY_AMINOACID | Parameters::SEARCH_MODE_FLAG_TARGET_PROFILE;
@@ -215,16 +216,18 @@ int search(int argc, const char **argv, const Command& command) {
     par.PARAM_THREADS.removeCategory(MMseqsParameter::COMMAND_EXPERT);
     par.PARAM_V.removeCategory(MMseqsParameter::COMMAND_EXPERT);
 
-    par.parseParameters(argc, argv, command, false, 0, MMseqsParameter::COMMAND_ALIGN | MMseqsParameter::COMMAND_PREFILTER);
+    par.parseParameters(argc, argv, command, false, 0,
+                        MMseqsParameter::COMMAND_ALIGN | MMseqsParameter::COMMAND_PREFILTER);
 
     std::string indexStr = PrefilteringIndexReader::searchForIndex(par.db2);
 
     int targetDbType = FileUtil::parseDbType(par.db2.c_str());
-    std::string targetDB =  (indexStr == "") ? par.db2.c_str() : indexStr.c_str();
+    std::string targetDB = (indexStr == "") ? par.db2.c_str() : indexStr.c_str();
     int targetSrcDbType = -1;
-    if(indexStr != "" || Parameters::isEqualDbtype(targetDbType, Parameters::DBTYPE_INDEX_DB)){
+    if (indexStr != "" || Parameters::isEqualDbtype(targetDbType, Parameters::DBTYPE_INDEX_DB)) {
         indexStr = par.db2;
-        DBReader<unsigned int> dbr(targetDB.c_str(), (targetDB+".index").c_str(), par.threads, DBReader<unsigned int>::USE_INDEX|DBReader<unsigned int>::USE_DATA);
+        DBReader<unsigned int> dbr(targetDB.c_str(), (targetDB + ".index").c_str(), par.threads,
+                                   DBReader<unsigned int>::USE_INDEX | DBReader<unsigned int>::USE_DATA);
         dbr.open(DBReader<unsigned int>::NOSORT);
         PrefilteringIndexData data = PrefilteringIndexReader::getMetadata(&dbr);
         targetSrcDbType = data.srcSeqType;
@@ -239,19 +242,26 @@ int search(int argc, const char **argv, const Command& command) {
 
     int searchMode = computeSearchMode(queryDbType, targetDbType, targetSrcDbType, par.searchType);
 
-    if ((searchMode & Parameters::SEARCH_MODE_FLAG_QUERY_NUCLEOTIDE) && (searchMode & Parameters::SEARCH_MODE_FLAG_TARGET_NUCLEOTIDE)) {
+    if ((searchMode & Parameters::SEARCH_MODE_FLAG_QUERY_NUCLEOTIDE) &&
+        (searchMode & Parameters::SEARCH_MODE_FLAG_TARGET_NUCLEOTIDE)) {
         setNuclSearchDefaults(&par);
-    } else{
+    } else {
         par.PARAM_STRAND.addCategory(MMseqsParameter::COMMAND_EXPERT);
     }
     // FIXME: use larger default k-mer size in target-profile case if memory is available
     // overwrite default kmerSize for target-profile searches and parse parameters again
-    if (par.sliceSearch == false && (searchMode & Parameters::SEARCH_MODE_FLAG_TARGET_PROFILE) && par.PARAM_K.wasSet == false) {
-        par.kmerSize = 5;
+    if (par.sliceSearch == false && (searchMode & Parameters::SEARCH_MODE_FLAG_TARGET_PROFILE) &&
+        par.PARAM_K.wasSet == false) {
+        if ((searchMode & Parameters::SEARCH_MODE_FLAG_QUERY_AMINOACID) && (par.numIterations > 1)) {
+            par.kmerSize = 0;
+        } else {
+            par.kmerSize = 6;
+        }
     }
 
     const bool isUngappedMode = par.alignmentMode == Parameters::ALIGNMENT_MODE_UNGAPPED;
-    if (isUngappedMode && (searchMode & (Parameters::SEARCH_MODE_FLAG_QUERY_PROFILE |Parameters::SEARCH_MODE_FLAG_TARGET_PROFILE ))) {
+    if (isUngappedMode &&
+        (searchMode & (Parameters::SEARCH_MODE_FLAG_QUERY_PROFILE | Parameters::SEARCH_MODE_FLAG_TARGET_PROFILE))) {
         par.printUsageMessage(command, MMseqsParameter::COMMAND_ALIGN | MMseqsParameter::COMMAND_PREFILTER);
         Debug(Debug::ERROR) << "Cannot use ungapped alignment mode with profile databases.\n";
         EXIT(EXIT_FAILURE);
@@ -259,11 +269,13 @@ int search(int argc, const char **argv, const Command& command) {
 
     // validate and set parameters for iterative search
     if (par.numIterations > 1) {
-        if (searchMode & Parameters::SEARCH_MODE_FLAG_TARGET_PROFILE) {
-            par.printUsageMessage(command, MMseqsParameter::COMMAND_ALIGN | MMseqsParameter::COMMAND_PREFILTER);
-            Debug(Debug::ERROR) << "Iterative target-profile searches are not supported.\n";
-            EXIT(EXIT_FAILURE);
-        }
+        // commmented out to test iterativepp workflow
+        // TODO: check if there exists an aln db underneath the targetdb -> used specifically in iterativepp workflow
+//        if (searchMode & Parameters::SEARCH_MODE_FLAG_TARGET_PROFILE) {
+//            par.printUsageMessage(command, MMseqsParameter::COMMAND_ALIGN | MMseqsParameter::COMMAND_PREFILTER);
+//            Debug(Debug::ERROR) << "Iterative target-profile searches are not supported.\n";
+//            EXIT(EXIT_FAILURE);
+//        }
 
         par.addBacktrace = true;
         if (searchMode & Parameters::SEARCH_MODE_FLAG_QUERY_PROFILE) {
@@ -308,8 +320,7 @@ int search(int argc, const char **argv, const Command& command) {
         // correct Eval threshold for inverted search
         const size_t queryDbSize = FileUtil::countLines(par.db1Index.c_str());
         const size_t targetDbSize = FileUtil::countLines(par.db2Index.c_str());
-        par.evalThr *= ((float) queryDbSize)/targetDbSize;
-
+        par.evalThr *= ((float) queryDbSize) / targetDbSize;
         int originalCovMode = par.covMode;
         par.covMode = Util::swapCoverageMode(par.covMode);
         size_t maxResListLen = par.maxResListLen;
@@ -332,7 +343,58 @@ int search(int argc, const char **argv, const Command& command) {
 
         program = tmpDir + "/searchslicedtargetprofile.sh";
         FileUtil::writeFile(program, searchslicedtargetprofile_sh, searchslicedtargetprofile_sh_len);
+//    } else if (((searchMode & Parameters::SEARCH_MODE_FLAG_TARGET_PROFILE) &&
+//                (searchMode & Parameters::SEARCH_MODE_FLAG_QUERY_AMINOACID))
+//               && (par.numIterations > 1)) {
+//        par.sliceSearch = true;
+//        int originalNumIterations = par.numIterations;
+//        par.numIterations = 1;
+//        par.realign = true;
+//        // slice-search evalThr must be set as the minimum val between evalThr and evalProfile
+//        // evalThr set as 1000 for regression / benchmark purposes
+//        int originalEval = par.evalThr;
+//        // TODO: what are the ideal values for evalProfile / evalThr?
+//        // default for evalThr = 0.001; evalProfile = 0.1
+//        par.evalThr = (par.evalThr < par.evalProfile) ? par.evalThr : par.evalProfile;
+//        par.addBacktrace = true;
+//        cmd.addVariable("SEARCH_PAR", par.createParameterString(par.searchworkflow).c_str());
+//        // subtract 1 from the original number of iterations
+//        par.numIterations = originalNumIterations;
+//        cmd.addVariable("NUM_IT", SSTR(par.numIterations).c_str());
+//        cmd.addVariable("SUBTRACT_PAR", par.createParameterString(par.subtractdbs).c_str());
+//        cmd.addVariable("VERBOSITY_PAR", par.createParameterString(par.onlyverbosity).c_str());
+////        par.evalThr = (par.evalThr < par.evalProfile) ? par.evalThr : par.evalProfile;
+//        // set the pcmode at context-specific
+//        par.pcmode = 1;
+//        // TODO: is this right? or efficient?
+//        cmd.addVariable("EXPAND_PAR", par.createParameterString(par.expand2profile).c_str());
+//        cmd.addVariable("CONSENSUS_PAR", par.createParameterString(par.profile2seq).c_str());
+//        for (int i = 1; i < par.numIterations; i++) {
+//            par.realign = false;
+//            if (i == (par.numIterations - 1)) {
+//                par.evalThr = originalEval;
+//            }
+//            cmd.addVariable(std::string("PREFILTER_PAR_" + SSTR(i)).c_str(),
+//                            par.createParameterString(par.prefilter).c_str());
+//            if (isUngappedMode) {
+//                par.rescoreMode = Parameters::RESCORE_MODE_ALIGNMENT;
+//                cmd.addVariable(std::string("ALIGNMENT_PAR_" + SSTR(i)).c_str(),
+//                                par.createParameterString(par.rescorediagonal).c_str());
+//                par.rescoreMode = originalRescoreMode;
+//            } else {
+//                cmd.addVariable(std::string("ALIGNMENT_PAR_" + SSTR(i)).c_str(),
+//                        par.createParameterString(par.align).c_str());
+//            }
+//            cmd.addVariable(std::string("EXPANDPROFILE_PAR_" + SSTR(i)).c_str(),
+//                            par.createParameterString(par.expand2profile).c_str());
+//            if (i == (par.numIterations - 1)) {
+//                cmd.addVariable("EXPANDALN_PAR", par.createParameterString(par.expandaln).c_str());
+//            }
+//        }
+//        FileUtil::writeFile(tmpDir + "/iterativepp.sh", iterativepp_sh, iterativepp_sh_len);
+//        program = std::string(tmpDir + "/iterativepp.sh");
     } else if (searchMode & Parameters::SEARCH_MODE_FLAG_TARGET_PROFILE) {
+        std::cout << "hello";
         cmd.addVariable("PREFILTER_PAR", par.createParameterString(par.prefilter).c_str());
         // we need to align all hits in case of target Profile hits
         size_t maxResListLen = par.maxResListLen;
@@ -351,6 +413,7 @@ int search(int argc, const char **argv, const Command& command) {
         cmd.addVariable("SWAP_PAR", par.createParameterString(par.swapresult).c_str());
         FileUtil::writeFile(tmpDir + "/searchtargetprofile.sh", searchtargetprofile_sh, searchtargetprofile_sh_len);
         program = std::string(tmpDir + "/searchtargetprofile.sh");
+        // setting up seq-profile search
     } else if (par.numIterations > 1) {
         cmd.addVariable("NUM_IT", SSTR(par.numIterations).c_str());
         cmd.addVariable("SUBSTRACT_PAR", par.createParameterString(par.subtractdbs).c_str());

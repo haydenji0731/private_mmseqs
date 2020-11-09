@@ -110,7 +110,7 @@ public:
     static const unsigned int EXPAND_TRANSFER_EVALUE = 0;
     static const unsigned int EXPAND_RESCORE_BACKTRACE = 1;
 
-    static const unsigned int PCMODE_SUBSTITUION_SCORE = 0;
+    static const unsigned int PCMODE_SUBSTITUTION_SCORE = 0;
     static const unsigned int PCMODE_CONTEXT_SPECIFIC = 1;
 
 
@@ -986,6 +986,7 @@ public:
     std::vector<MMseqsParameter*> linclustworkflow;
     std::vector<MMseqsParameter*> easysearchworkflow;
     std::vector<MMseqsParameter*> searchworkflow;
+//    std::vector<MMseqsParameter*> iterativeppworkflow;
     std::vector<MMseqsParameter*> linsearchworkflow;
     std::vector<MMseqsParameter*> easylinsearchworkflow;
     std::vector<MMseqsParameter*> mapworkflow;

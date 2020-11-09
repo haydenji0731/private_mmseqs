@@ -1064,7 +1064,8 @@ Parameters::Parameters():
     searchworkflow = combineList(searchworkflow, translatenucs);
     searchworkflow = combineList(searchworkflow, offsetalignment);
     // needed for slice search, however all its parameters are already present in searchworkflow
-    // searchworkflow = combineList(searchworkflow, sortresult);
+    // TODO: check this? uncomment again?
+    searchworkflow = combineList(searchworkflow, sortresult);
     searchworkflow.push_back(&PARAM_NUM_ITERATIONS);
     searchworkflow.push_back(&PARAM_START_SENS);
     searchworkflow.push_back(&PARAM_SENS_STEPS);
@@ -1075,6 +1076,18 @@ Parameters::Parameters():
     searchworkflow.push_back(&PARAM_RUNNER);
     searchworkflow.push_back(&PARAM_REUSELATEST);
     searchworkflow.push_back(&PARAM_REMOVE_TMP_FILES);
+
+    // loading the parameter vector for iterativeppworkflow
+//    iterativeppworkflow = combineList(align, prefilter);
+//    iterativeppworkflow = combineList(iterativeppworkflow, rescorediagonal);
+//    iterativeppworkflow = combineList(iterativeppworkflow, swapresult);
+//    iterativeppworkflow = combineList(iterativeppworkflow, sortresult);
+//    iterativeppworkflow.push_back(&PARAM_NUM_ITERATIONS);
+//    iterativeppworkflow.push_back(&PARAM_SLICE_SEARCH);
+//    iterativeppworkflow.push_back(&PARAM_DISK_SPACE_LIMIT);
+//    iterativeppworkflow.push_back(&PARAM_RUNNER);
+//    iterativeppworkflow.push_back(&PARAM_REUSELATEST);
+//    iterativeppworkflow.push_back(&PARAM_REMOVE_TMP_FILES);
 
     linsearchworkflow = combineList(align, kmersearch);
     linsearchworkflow = combineList(linsearchworkflow, swapresult);
@@ -2091,7 +2104,7 @@ void Parameters::setDefaults() {
     covMSAThr = 0.0;           // default for minimum coverage threshold
     Ndiff = 1000;        // pick Ndiff most different sequences from alignment
     wg = false;
-    pcmode = PCMODE_SUBSTITUION_SCORE;
+    pcmode = PCMODE_SUBSTITUTION_SCORE;
     pca = MultiParam<PseudoCounts>(PseudoCounts(1.1, 1.4));
     pcb = MultiParam<PseudoCounts>(PseudoCounts(4.1, 5.8));
 
