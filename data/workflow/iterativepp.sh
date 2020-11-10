@@ -31,12 +31,15 @@ STEP=0
 # processing
 while [ $STEP -lt $NUM_IT ]; do
   if [ $STEP -eq 0 ]; then
+    # shellcheck disable=SC2086
     "$MMSEQS" search "$QUERYDB" "$TARGETDB" "$TMP_PATH/aln_$STEP" "$TMP_PATH" ${SEARCH_PAR} \
       || fail "Slicesearch died"
     if notExists "$TMP_PATH/profile_$STEP.dbtype"; then
+      # shellcheck disable=SC2086
       "$MMSEQS" expand2profile "$QUERYDB" "$TARGETDB" "$TMP_PATH/aln_$STEP" "$2_aln" "$TMP_PATH/profile_$STEP"  ${EXPAND_PAR} \
         || fail "Expand2Profile died"
     fi
+    # shellcheck disable=SC2086
     "$MMSEQS" profile2consensus "$TARGETDB" "$2_consensus" ${CONSENSUS_PAR} \
       || fail "Profile2Consensus died"
     TARGETDB="$2_consensus"
@@ -47,9 +50,11 @@ while [ $STEP -lt $NUM_IT ]; do
       PARAM="PREFILTER_PAR_$STEP"
       eval TMP="\$$PARAM"
       if [ $STEP -eq 1 ]; then
+        # shellcheck disable=SC2086
         $RUNNER "$MMSEQS" prefilter "$QUERYDB" "$TARGETDB" "$TMP_PATH/pref_$STEP" ${TMP} \
           || fail "Prefilter died"
       else
+        # shellcheck disable=SC2086
         $RUNNER "$MMSEQS" prefilter "$QUERYDB" "$TARGETDB" "$TMP_PATH/pref_tmp_$STEP" ${TMP} \
           || fail "Prefilter died"
       fi
@@ -58,6 +63,7 @@ while [ $STEP -lt $NUM_IT ]; do
     if [ $STEP -ge 1 ]; then
       if notExists "$TMP_PATH/pref_$STEP.dbtype"; then
         STEPPREV=$((STEP-1))
+        # shellcheck disable=SC2086
         "$MMSEQS" subtractdbs "$TMP_PATH/pref_tmp_$STEP" "$TMP_PATH/aln_$STEPPREV" "$TMP_PATH/pref_$STEP" $SUBTRACT_PAR \
           || fail "Subtract died"
         "$MMSEQS" rmdb "$TMP_PATH/pref_tmp_$STEP"
@@ -68,9 +74,11 @@ while [ $STEP -lt $NUM_IT ]; do
       PARAM="ALIGNMENT_PAR_$STEP"
       eval TMP="\$$PARAM"
       if [ $STEP -eq 1 ]; then
+        # shellcheck disable=SC2086
         $RUNNER "$MMSEQS" align "$QUERYDB" "$2" "$TMP_PATH/pref_$STEP" "$TMP_PATH/aln_$STEP" ${TMP} \
           || fail "Alignment died"
       else
+        # shellcheck disable=SC2086
         $RUNNER "$MMSEQS" align "$QUERYDB" "$2" "$TMP_PATH/pref_$STEP" "$TMP_PATH/aln_tmp_$STEP" ${TMP} \
           || fail "Alignment died"
       fi
@@ -91,11 +99,13 @@ while [ $STEP -lt $NUM_IT ]; do
         PARAM="EXPANDPROFILE_PAR_$STEP"
         eval TMP="\$$PARAM"
         # make sure that $2_aln contains a backtrace
+        # shellcheck disable=SC2086
         $RUNNER "$MMSEQS" expand2profile "$QUERYDB" "$TARGETDB" "$TMP_PATH/aln_$STEP" "$2_aln" "$TMP_PATH/profile_$STEP" ${TMP} \
           || fail "Expand2Profile died"
       fi
       else
         if notExists "$3.dbtype"; then
+          # shellcheck disable=SC2086
         "$MMSEQS" expandaln "$QUERYDB" "$TARGETDB" "$TMP_PATH/aln_$STEP" "$2_aln" "$3" ${EXPANDALN_PAR} \
           || fail "Expandaln died"
       fi
@@ -108,8 +118,11 @@ done
 if [ -n "$REMOVE_TMP" ]; then
   STEP=0
   while [ "$STEP" -lt "$NUM_IT" ]; do
+    # shellcheck disable=SC2086
     "$MMSEQS" rmdb "${TMP_PATH}/pref_$STEP" ${VERBOSITY}
+    # shellcheck disable=SC2086
     "$MMSEQS" rmdb "${TMP_PATH/aln_$STEP}" ${VERBOSITY}
+    # shellcheck disable=SC2086
     "$MMSEQS" rmdb "${TMP_PATH}/profile_$STEP" ${VERBOSITY}
     STEP=$((STEP+1))
   done
