@@ -29,7 +29,7 @@ TMP_PATH="$4"
 STEP=0
 
 # processing
-while [ $STEP -lt $NUM_IT ]; do
+while [ $STEP -lt "$NUM_IT" ]; do
   if [ $STEP -eq 0 ]; then
     # shellcheck disable=SC2086
     "$MMSEQS" search "$QUERYDB" "$TARGETDB" "$TMP_PATH/aln_$STEP" "$TMP_PATH" ${SEARCH_PAR} \
@@ -69,7 +69,7 @@ while [ $STEP -lt $NUM_IT ]; do
         "$MMSEQS" rmdb "$TMP_PATH/pref_tmp_$STEP"
       fi
     fi
-    # call alignment modulevi
+    # call alignment module
     if notExists "$TMP_PATH/aln_tmp_$STEP.db"; then
       PARAM="ALIGNMENT_PAR_$STEP"
       eval TMP="\$$PARAM"
@@ -121,7 +121,7 @@ if [ -n "$REMOVE_TMP" ]; then
     # shellcheck disable=SC2086
     "$MMSEQS" rmdb "${TMP_PATH}/pref_$STEP" ${VERBOSITY}
     # shellcheck disable=SC2086
-    "$MMSEQS" rmdb "${TMP_PATH/aln_$STEP}" ${VERBOSITY}
+    "$MMSEQS" rmdb "${TMP_PATH}/aln_$STEP" ${VERBOSITY}
     # shellcheck disable=SC2086
     "$MMSEQS" rmdb "${TMP_PATH}/profile_$STEP" ${VERBOSITY}
     STEP=$((STEP+1))
