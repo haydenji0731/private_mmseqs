@@ -12,7 +12,7 @@ notExists() {
 #pre processing
 [ -z "$MMSEQS" ] && echo "Please set the environment variable \$MMSEQS to your MMSEQS binary." && exit 1;
 # check number of input variables
-[ "$#" -ne 4 ] && echo "Please provide <queryDB> <targetDB> <outDB> <tmp>" && exit 1;
+[ "$#" -lt 4 ] && echo "Please provide <queryDB> <targetDB> <outDB> <tmp>" && exit 1;
 
 #targetdb_aln <- aln result
 #targetdb <- profiles
@@ -21,10 +21,17 @@ notExists() {
 [ ! -f "$2.dbtype" ] && echo "$2.dbtype not found!" && exit 1;
 [   -f "$3.dbtype" ] && echo "$3.dbtype exists already!" && exit 1;
 [ ! -d "$4" ] && echo "tmp directory $4 not found!" && mkdir -p "$4";
+[ -f "$5" ] && echo "$5 set at extended target database!";
 
 QUERYDB="$1"
 TARGETDB="$2"
 TMP_PATH="$4"
+## added for testing subsets
+#if notExists "$5"; then
+#  TARGETDB_EXT=TARGETDB
+#else
+#  TARGETDB_EXT="$5"
+#fi
 
 STEP=0
 
