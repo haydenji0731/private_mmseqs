@@ -191,7 +191,9 @@ Prefiltering::Prefiltering(const std::string &queryDB,
     if(Parameters::isEqualDbtype(targetSeqType, Parameters::DBTYPE_NUCLEOTIDES) == false){
         const bool isProfileSearch = Parameters::isEqualDbtype(querySeqType, Parameters::DBTYPE_HMM_PROFILE) ||
                                      Parameters::isEqualDbtype(targetSeqType, Parameters::DBTYPE_HMM_PROFILE);
+
         kmerThr = getKmerThreshold(sensitivity, isProfileSearch, kmerScore, kmerSize);
+        printf("%d %f %d %d", kmerThr, sensitivity, kmerScore, kmerSize);
     }else {
         kmerThr = 0;
     }

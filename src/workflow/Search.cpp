@@ -252,10 +252,10 @@ int search(int argc, const char **argv, const Command& command) {
     // overwrite default kmerSize for target-profile searches and parse parameters again
     if (par.sliceSearch == false && (searchMode & Parameters::SEARCH_MODE_FLAG_TARGET_PROFILE) &&
         par.PARAM_K.wasSet == false) {
-        if ((searchMode & Parameters::SEARCH_MODE_FLAG_QUERY_AMINOACID) && (par.numIterations > 1)) {
+        if ((searchMode & Parameters::SEARCH_MODE_FLAG_QUERY_AMINOACID) && par.PARAM_NUM_ITERATIONS.wasSet) {
             par.kmerSize = 0;
         } else {
-            par.kmerSize = 6;
+            par.kmerSize = 5;
         }
     }
 
@@ -314,6 +314,7 @@ int search(int argc, const char **argv, const Command& command) {
 //    cmd.addVariable("ALIGNMENT_DB_EXT", Parameters::isEqualDbtype(targetDbType, Parameters::DBTYPE_PROFILE_STATE_SEQ) ? ".255" : "");
     par.filenames[1] = targetDB;
     if (par.sliceSearch == true) {
+//        std::cout << "slice?";
         // By default (0), diskSpaceLimit (in bytes) will be set in the workflow to use as much as possible
         cmd.addVariable("AVAIL_DISK", SSTR(static_cast<size_t>(par.diskSpaceLimit)).c_str());
 
@@ -343,34 +344,33 @@ int search(int argc, const char **argv, const Command& command) {
 
         program = tmpDir + "/searchslicedtargetprofile.sh";
         FileUtil::writeFile(program, searchslicedtargetprofile_sh, searchslicedtargetprofile_sh_len);
-    } else if (((searchMode & Parameters::SEARCH_MODE_FLAG_TARGET_PROFILE) &&
-                (searchMode & Parameters::SEARCH_MODE_FLAG_QUERY_AMINOACID))
-               && (par.numIterations > 1)) {
+    } else if (((searchMode & Parameters::SEARCH_MODE_FLAG_TARGET_PROFILE) && (searchMode & Parameters::SEARCH_MODE_FLAG_QUERY_AMINOACID))
+        && par.PARAM_NUM_ITERATIONS.wasSet){
+//        std::cout << "iterativepp?";
         par.sliceSearch = true;
+        // TODO: does this rly matter?
         int originalNumIterations = par.numIterations;
         par.numIterations = 1;
-        par.realign = true;
+//        par.realign = true;
         // slice-search evalThr must be set as the minimum val between evalThr and evalProfile
         // evalThr set as 1000 for regression / benchmark purposes
-        int originalEval = par.evalThr;
-        // TODO: what are the ideal values for evalProfile / evalThr?
+        // TODO: recommend that evalThr = 1000, evalProfile = 0.1
         // default for evalThr = 0.001; evalProfile = 0.1
-        par.evalThr = (par.evalThr < par.evalProfile) ? par.evalThr : par.evalProfile;
         par.addBacktrace = true;
         cmd.addVariable("SEARCH_PAR", par.createParameterString(par.searchworkflow).c_str());
-        // subtract 1 from the original number of iterations
+        int originalEval = par.evalThr;
+        par.evalThr = (par.evalThr < par.evalProfile) ? par.evalThr : par.evalProfile;
         par.numIterations = originalNumIterations;
         cmd.addVariable("NUM_IT", SSTR(par.numIterations).c_str());
         cmd.addVariable("SUBTRACT_PAR", par.createParameterString(par.subtractdbs).c_str());
         cmd.addVariable("VERBOSITY_PAR", par.createParameterString(par.onlyverbosity).c_str());
-////        par.evalThr = (par.evalThr < par.evalProfile) ? par.evalThr : par.evalProfile;
         // set the pcmode at context-specific
         par.pcmode = 1;
         // TODO: is this right? or efficient?
         cmd.addVariable("EXPAND_PAR", par.createParameterString(par.expand2profile).c_str());
         cmd.addVariable("CONSENSUS_PAR", par.createParameterString(par.profile2seq).c_str());
         for (int i = 1; i < par.numIterations; i++) {
-            par.realign = false;
+//            par.realign = false;
             if (i == (par.numIterations - 1)) {
                 par.evalThr = originalEval;
             }
@@ -394,7 +394,7 @@ int search(int argc, const char **argv, const Command& command) {
         FileUtil::writeFile(tmpDir + "/iterativepp.sh", iterativepp_sh, iterativepp_sh_len);
         program = std::string(tmpDir + "/iterativepp.sh");
     } else if (searchMode & Parameters::SEARCH_MODE_FLAG_TARGET_PROFILE) {
-//        std::cout << "hello";
+//        std::cout << "pgp?";
         cmd.addVariable("PREFILTER_PAR", par.createParameterString(par.prefilter).c_str());
         // we need to align all hits in case of target Profile hits
         size_t maxResListLen = par.maxResListLen;
@@ -413,7 +413,7 @@ int search(int argc, const char **argv, const Command& command) {
         cmd.addVariable("SWAP_PAR", par.createParameterString(par.swapresult).c_str());
         FileUtil::writeFile(tmpDir + "/searchtargetprofile.sh", searchtargetprofile_sh, searchtargetprofile_sh_len);
         program = std::string(tmpDir + "/searchtargetprofile.sh");
-        // setting up seq-profile search
+//        // setting up seq-profile search
     } else if (par.numIterations > 1) {
         cmd.addVariable("NUM_IT", SSTR(par.numIterations).c_str());
         cmd.addVariable("SUBSTRACT_PAR", par.createParameterString(par.subtractdbs).c_str());
