@@ -39,7 +39,8 @@ while [ $STEP -lt "$NUM_IT" ]; do
      TARGETDB="$2_consensus"
   fi
   # call prefilter module
-  if [ $STEP -ne 0 ]; then
+  # TODO: check if this is actually right?
+  if [ $STEP -gt 0 ]; then
     PARAM="PREFILTER_PAR_$STEP"
     eval TMP="\$$PARAM"
      # shellcheck disable=SC2086
