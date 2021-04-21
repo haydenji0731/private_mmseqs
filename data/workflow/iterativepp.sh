@@ -33,63 +33,45 @@ while [ $STEP -lt "$NUM_IT" ]; do
     # shellcheck disable=SC2086
     "$MMSEQS" search "$QUERYDB" "$TARGETDB" "$TMP_PATH/aln_$STEP" "$TMP_PATH" ${SEARCH_PAR} \
       || fail "Slicesearch died"
-    # shellcheck disable=SC2086
+          # shellcheck disable=SC2086
     "$MMSEQS" profile2consensus "$TARGETDB" "$2_consensus" ${CONSENSUS_PAR} \
       || fail "Profile2Consensus died"
-    TARGETDB="$2_consensus"
+     TARGETDB="$2_consensus"
   fi
   # call prefilter module
-  if [ $STEP -gt 0 ]; then
+  if [ $STEP -ne 0 ]; then
     PARAM="PREFILTER_PAR_$STEP"
     eval TMP="\$$PARAM"
-    # call prefilter module
-    if [ $STEP -eq 1 ]; then
-      # shellcheck disable=SC2086
-      $RUNNER "$MMSEQS" prefilter "$QUERYDB" "$TARGETDB" "$TMP_PATH/pref_$STEP" ${TMP} \
-        || fail "Prefilter died"
-    else
-      # shellcheck disable=SC2086
+     # shellcheck disable=SC2086
       $RUNNER "$MMSEQS" prefilter "$QUERYDB" "$TARGETDB" "$TMP_PATH/pref_tmp_$STEP" ${TMP} \
         || fail "Prefilter died"
-    fi
-    if [ $STEP -gt 1 ]; then
-      STEPPREV=$((STEP-1))
-      "$MMSEQS" subtractdbs "$TMP_PATH/pref_tmp_$STEP" "$TMP_PATH/aln_$STEPPREV" "$TMP_PATH/pref_$STEP" $SUBTRACT_PAR \
-        || fail "Subtract died"
-      "$MMSEQS" rmdb "$TMP_PATH/pref_tmp_$STEP"
-    fi
+    STEPPREV=$((STEP-1))
+    "$MMSEQS" subtractdbs "$TMP_PATH/pref_tmp_$STEP" "$TMP_PATH/aln_$STEPPREV" "$TMP_PATH/pref_$STEP" $SUBTRACT_PAR \
+      || fail "Subtract died"
+    "$MMSEQS" rmdb "$TMP_PATH/pref_tmp_$STEP"
     # call alignment module
     PARAM="ALIGNMENT_PAR_$STEP"
     eval TMP="\$$PARAM"
-    if [ $STEP -eq 1 ]; then
       # shellcheck disable=SC2086
-      $RUNNER "$MMSEQS" align "$QUERYDB" "$2" "$TMP_PATH/pref_$STEP" "$TMP_PATH/aln_$STEP" ${TMP} \
-        || fail "Alignment died"
-    else
-      # shellcheck disable=SC2086
-      $RUNNER "$MMSEQS" align "$QUERYDB" "$2" "$TMP_PATH/pref_$STEP" "$TMP_PATH/aln_tmp_$STEP" ${TMP} \
-        || "Alignment died"
-    fi
+    $RUNNER "$MMSEQS" align "$QUERYDB" "$2" "$TMP_PATH/pref_$STEP" "$TMP_PATH/aln_tmp_$STEP" ${TMP} \
+      || "Alignment died"
     # merge alignment dbs
-    if [ $STEP -gt 1 ]; then
-      STEPPREV=$((STEP-1))
-      "$MMSEQS" mergedbs "$QUERYDB" "$TMP_PATH/aln_$STEP" "$TMP_PATH/aln_$STEPPREV" "$TMP_PATH/aln_tmp_$STEP" \
-        || fail "Mergedbs died"
-      "$MMSEQS" rmdb "$TMP_PATH/aln_$STEPPREV"
-      "$MMSEQS" rmdb "$TMP_PATH/aln_tmp_$STEP"
-    fi
+    STEPPREV=$((STEP-1))
+    "$MMSEQS" mergedbs "$QUERYDB" "$TMP_PATH/aln_$STEP" "$TMP_PATH/aln_$STEPPREV" "$TMP_PATH/aln_tmp_$STEP" \
+      || fail "Mergedbs died"
+    "$MMSEQS" rmdb "$TMP_PATH/aln_$STEPPREV"
+    "$MMSEQS" rmdb "$TMP_PATH/aln_tmp_$STEP"
   fi
   # expand alignment dbs
+  # targetdb has to be a full set!
   if [ $STEP -ne $(($NUM_IT - 1)) ]; then
-    PARAM="EXPANDPROFILE_PAR_$STEP"
-    eval TMP="\$$PARAM"
-    echo "hello"
     # shellcheck disable=SC2086
-    "$MMSEQS" expand2profile "$QUERYDB" "$TARGETDB" "$TMP_PATH/aln_$STEP" "$2_aln" "$TMP_PATH/profile_$STEP" ${TMP} \
+    "$MMSEQS" expand2profile "$1" "$2" "$TMP_PATH/aln_$STEP" "$2_aln" "$TMP_PATH/profile_$STEP" $EXPANDPROFILE_PAR \
       || fail 'Expand2Profile died'
   else
+#    PARAM="EXPANDALN_PAR"
     # shellcheck disable=SC2086
-    "$MMSEQS" expandaln "$QUERYDB" "$TARGETDB" "$TMP_PATH/aln_$STEP" "$2_aln" "$3" ${EXPANDALN_PAR} \
+    "$MMSEQS" expandaln "$1" "$2" "$TMP_PATH/aln_$STEP" "$2_aln" "$3" $EXPANDALN_PAR \
       || fail "Expandaln died"
   fi
   QUERYDB="$TMP_PATH/profile_$STEP"

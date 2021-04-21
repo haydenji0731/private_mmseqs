@@ -358,21 +358,25 @@ int search(int argc, const char **argv, const Command& command) {
         // default for evalThr = 0.001; evalProfile = 0.1
         par.addBacktrace = true;
         cmd.addVariable("SEARCH_PAR", par.createParameterString(par.searchworkflow).c_str());
+        par.numIterations = originalNumIterations;
+        cmd.addVariable("EXPANDALN_PAR", par.createParameterString(par.expandaln).c_str());
         int originalEval = par.evalThr;
         par.evalThr = (par.evalThr < par.evalProfile) ? par.evalThr : par.evalProfile;
-        par.numIterations = originalNumIterations;
+        par.pcmode = 1;
+        cmd.addVariable("EXPANDPROFILE_PAR", par.createParameterString(par.expand2profile).c_str());
         cmd.addVariable("NUM_IT", SSTR(par.numIterations).c_str());
         cmd.addVariable("SUBTRACT_PAR", par.createParameterString(par.subtractdbs).c_str());
+        cmd.addVariable("MERGE_PAR", par.createParameterString(par.mergedbs).c_str());
         cmd.addVariable("VERBOSITY_PAR", par.createParameterString(par.onlyverbosity).c_str());
-        // set the pcmode at context-specific
-        par.pcmode = 1;
-        // TODO: is this right? or efficient?
-        cmd.addVariable("EXPAND_PAR", par.createParameterString(par.expand2profile).c_str());
         cmd.addVariable("CONSENSUS_PAR", par.createParameterString(par.profile2seq).c_str());
         for (int i = 1; i < par.numIterations; i++) {
 //            par.realign = false;
+            // used to tweak the align e-value
             if (i == (par.numIterations - 1)) {
                 par.evalThr = originalEval;
+                // turn off pcmode to just expand + original eVal reinstated
+//                par.pcmode = 0;
+//                cmd.addVariable("EXPANDALN_PAR", par.createParameterString(par.expandaln).c_str());
             }
             cmd.addVariable(std::string("PREFILTER_PAR_" + SSTR(i)).c_str(),
                             par.createParameterString(par.prefilter).c_str());
@@ -385,11 +389,10 @@ int search(int argc, const char **argv, const Command& command) {
                 cmd.addVariable(std::string("ALIGNMENT_PAR_" + SSTR(i)).c_str(),
                         par.createParameterString(par.align).c_str());
             }
-            cmd.addVariable(std::string("EXPANDPROFILE_PAR_" + SSTR(i)).c_str(),
-                            par.createParameterString(par.expand2profile).c_str());
-            if (i == (par.numIterations - 1)) {
-                cmd.addVariable("EXPANDALN_PAR", par.createParameterString(par.expandaln).c_str());
-            }
+//            if (i != (par.numIterations - 1)) {
+//                cmd.addVariable(std::string("EXPANDPROFILE_PAR_" + SSTR(i)).c_str(),
+//                                par.createParameterString(par.expand2profile).c_str());
+//            }
         }
         FileUtil::writeFile(tmpDir + "/iterativepp.sh", iterativepp_sh, iterativepp_sh_len);
         program = std::string(tmpDir + "/iterativepp.sh");

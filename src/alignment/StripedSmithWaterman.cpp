@@ -154,7 +154,6 @@ void SmithWaterman::createConsensProfile(simd_int *profile, const int8_t *consen
             j += segLen;
         }
     }
-
 }
 
 
@@ -1071,9 +1070,9 @@ void SmithWaterman::ssw_init(const Sequence* q,
         seq_reverse(profile->composition_bias_rev, profile->composition_bias, q->L);
 	}
 
-	if (isQueryProfile) {
-	    seq_reverse(profile->query_consens_rev_sequence, profile->query_consens_sequence, q->L - 1);
-	}
+//	if (isQueryProfile) {
+//	    seq_reverse(profile->query_consens_rev_sequence, profile->query_consens_sequence, q->L - 1);
+//	}
 
 	if (isProfile) {
         for (int32_t i = 0; i < alphabetSize; i++) {
