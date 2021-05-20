@@ -225,8 +225,8 @@ int expandaln(int argc, const char **argv, const Command& command, bool returnAl
                 } else {
                     Matcher::readAlignmentResults(resultsBc, resultBcReader.getData(bResId, thread_idx), false);
                 }
-
-                std::stable_sort(resultsBc.begin(), resultsBc.end(), compareHitsByKeyScore);
+                // commented out to prevent sorting; this effects the sensitivity
+//                std::stable_sort(resultsBc.begin(), resultsBc.end(), compareHitsByKeyScore);
 
                 for (size_t k = 0; k < resultsBc.size(); ++k) {
                     Matcher::result_t &resultBc = resultsBc[k];
@@ -255,7 +255,7 @@ int expandaln(int argc, const char **argv, const Command& command, bool returnAl
                         size_t cSeqId = cReader->getId(cSeqKey);
                         cSeq.mapSequence(cSeqId, cSeqKey, cReader->getData(cSeqId, thread_idx), cReader->getSeqLen(cSeqId));
                         rescoreResultByBacktrace(resultAc, aSeq, cSeq, subMat, compositionBias, par.gapOpen.values.aminoacid(), par.gapExtend.values.aminoacid());
-                        if(resultAc.score < -6){ // alignment too bad (fitted on regression benchmark EXPAND)
+                        if (resultAc.score < -6) { // alignment too bad (fitted on regression benchmark EXPAND)
                             continue;
                         }
 
@@ -300,7 +300,8 @@ int expandaln(int argc, const char **argv, const Command& command, bool returnAl
             interval.clear();
 
             if (returnAlnRes) {
-                SORT_SERIAL(resultsAc.begin(), resultsAc.end(), Matcher::compareHits);
+                // commented out to prevent sorting; this effets sensitivity score
+//                SORT_SERIAL(resultsAc.begin(), resultsAc.end(), Matcher::compareHits);
                 writer.writeStart(thread_idx);
                 for (size_t j = 0; j < resultsAc.size(); ++j) {
                     size_t len = Matcher::resultToBuffer(buffer, resultsAc[j], true, true);
