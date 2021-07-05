@@ -47,7 +47,7 @@ int profile2pssm(int argc, const char **argv, const Command &command) {
 
             unsigned int key = reader.getDbKey(i);
             seq.mapSequence(i, key, reader.getData(i, thread_idx), reader.getSeqLen(i));
-
+//TODO: turn float into strings -> output sstr
 
             if (isDbOutput == false) {
                 result.append("Query profile of sequence ");
@@ -62,9 +62,10 @@ int profile2pssm(int argc, const char **argv, const Command &command) {
                 result.push_back(subMat.num2aa[aa]);
             }
             result.push_back('\n');
-
+		// keep
             for (int j = 0; j < seq.L; ++j) {
-                Itoa::i32toa_sse2(j, buffer);
+                // results.push_back
+		Itoa::i32toa_sse2(j, buffer);
                 result.append(buffer);
                 result.push_back('\t');
                 result.push_back(subMat.num2aa[seq.numConsensusSequence[j]]);
