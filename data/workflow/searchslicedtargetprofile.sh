@@ -58,7 +58,7 @@ TOTAL_NUM_PROFILES=$(wc -l < "${PROFILEDB}.index")
 NUM_SEQS_THAT_SATURATE="$(wc -l < "${INPUT}.index")"
 # added to speed up the first iteration
 # TODO: remove for regular benchmarks
-#NUM_SEQS_THAT_SATURATE="$((NUM_SEQS_THAT_SATURATE/10))"
+NUM_SEQS_THAT_SATURATE="$((NUM_SEQS_THAT_SATURATE/10))"
 FIRST_INDEX_LINE=1
 NUM_PROFS_IN_STEP=1
 NUM_PREF_RESULTS_IN_ALL_PREV_STEPS=0
