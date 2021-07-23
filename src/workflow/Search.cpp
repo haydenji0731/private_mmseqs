@@ -361,7 +361,8 @@ int search(int argc, const char **argv, const Command& command) {
             cmd.addVariable("SEARCH_PAR", par.createParameterString(par.searchworkflow).c_str());
         }
         par.pcmode = 1;
-        cmd.addVariable("EXPANDPROFILE_PAR", par.createParameterString(par.expand2profile).c_str());
+//        cmd.addVariable("RESULTPROFILE_PAR", par.createParameterString(par.result2profile).c_str());
+	cmd.addVariable("EXPANDPROFILE_PAR", par.createParameterString(par.expand2profile).c_str());
         par.numIterations = originalNumIterations;
         cmd.addVariable("NUM_IT", SSTR(par.numIterations).c_str());
         cmd.addVariable("MERGE_PAR", par.createParameterString(par.mergedbs).c_str());

@@ -69,8 +69,8 @@ while [ $STEP -lt "$NUM_IT" ]; do
         # shellcheck disable=SC2086
       "$MMSEQS" expand2profile "$QUERYDB" "$SEQDB" "$TMP_PATH/aln_$STEP" "$ALNDB" "$TMP_PATH/profile_$STEP" $EXPANDPROFILE_PAR \
       || fail 'Expand2Profile died'
-	#"$MMSEQS" expand2profile "$QUERYDB" /data2/hayden/db/fullset/uniref100.mmseqs "$TMP_PATH/aln_$STEP" /data2/martin/profileprofile/db/mmseqs/uniref100.noswipe.mmseqs.clu.profile_aln "$TMP_PATH/profile_$STEP" $EXPANDPROFILE_PAR \
-      #|| fail 'Expand2Profile died'
+#      "$MMSEQS" result2profile "$QUERYDB" "$SEQDB" "$TMP_PATH/aln_$STEP" "$TMP_PATH/profile_$STEP" $RESULTPROFILE_PAR \
+#	|| fail 'Result2Profile died'
   else
 #    PARAM="EXPANDALN_PAR"
     # shellcheck disable=SC2086
